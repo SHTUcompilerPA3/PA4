@@ -1032,7 +1032,6 @@ void lt_class::code(ostream &s) {
   emit_label_def(labelnumber, s);
   ++labelnumber;
 }
-}
 
 void eq_class::code(ostream &s) {
   e1->code(s);
