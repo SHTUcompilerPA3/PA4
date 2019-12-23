@@ -8,6 +8,8 @@ enum Basicness     {Basic, NotBasic};
 #define TRUE 1
 #define FALSE 0
 
+class Current;
+
 class CgenClassTable;
 typedef CgenClassTable *CgenClassTableP;
 

@@ -12,6 +12,7 @@
 #include "tree.h"
 #include "cool-tree.handcode.h"
 
+class Current;
 
 // define the class for phylum
 // define simple phylum - Program

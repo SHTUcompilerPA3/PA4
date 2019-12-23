@@ -24,6 +24,7 @@
 
 #include "cgen.h"
 #include "cgen_gc.h"
+#include <vector>
 
 extern void emit_string_constant(ostream& str, char *s);
 extern int cgen_debug;
@@ -110,6 +111,7 @@ static char *gc_init_names[] =
 static char *gc_collect_names[] =
   { "_NoGC_Collect", "_GenGC_Collect", "_ScnGC_Collect" };
 
+static int labelnumber = 0;
 
 //  BoolConst is a class that implements code generation for operations
 //  on the two booleans, which are given global names here.
@@ -403,7 +405,7 @@ void StringEntry::code_def(ostream& s, int stringclasstag)
 
 
  /***** Add dispatch information for class String ******/
-
+      s << Str << DISPTAB_SUFFIX;  
       s << endl;                                              // dispatch table
       s << WORD;  lensym->code_ref(s);  s << endl;            // string length
   emit_string_constant(s,str);                                // ascii string
@@ -445,7 +447,7 @@ void IntEntry::code_def(ostream &s, int intclasstag)
       << WORD; 
 
  /***** Add dispatch information for class Int ******/
-
+      s << Int << DISPTAB_SUFFIX; 
       s << endl;                                          // dispatch table
       s << WORD << str << endl;                           // integer value
 }
@@ -489,7 +491,7 @@ void BoolConst::code_def(ostream& s, int boolclasstag)
       << WORD;
 
  /***** Add dispatch information for class Bool ******/
-
+      s << Bool << DISPTAB_SUFFIX;  
       s << endl;                                            // dispatch table
       s << WORD << val << endl;                             // value (0 or 1)
 }
@@ -877,6 +879,24 @@ CgenNode::CgenNode(Class_ nd, Basicness bstatus, CgenClassTableP ct) :
 //
 //*****************************************************************
 
+class Current{
+  public:
+    CgenNodeP* curr_class;
+    std::vector<Symbol> param_table;
+    std::vector<Symbol> var_table;
+    Current(CgenNodeP c){
+      curr_class = &c;
+    }
+    Current(){}
+    ~Current(){}
+    int AddNoType(){
+      var_table.push_back(No_type);
+      return var_table.size() - 1;
+    }
+};
+
+Current curr;
+
 void assign_class::code(ostream &s) {
 }
 
@@ -887,45 +907,180 @@ void dispatch_class::code(ostream &s) {
 }
 
 void cond_class::code(ostream &s) {
+  pred->code(s);
+  emit_load(T1,3,ACC,s);
+  emit_beqz(T1,labelnumber,s);
+  int labelelse = labelnumber;
+  ++labelnumber;
+  then_exp->code(s);
+  int labelthen = labelnumber;
+  ++labelnumber;
+  emit_branch(labelthen,s);
+  emit_label_def(labelelse,s);
+  else_exp->code(s);
+  emit_label_def(labelthen,s);
 }
 
 void loop_class::code(ostream &s) {
+  int labelbegin = labelnumber;
+  ++labelnumber;
+  emit_label_def(labelbegin,s);
+  pred->code(s);
+  int labelend = labelnumber;
+  ++labelnumber;
+  emit_load(T1,3,ACC,s);
+  emit_beqz(T1,labelend,s);
+  body->code(s);
+  emit_branch(labelbegin,s);
+  emit_label_def(labelend,s);
+  emit_move(ACC,ZERO,s);
 }
 
 void typcase_class::code(ostream &s) {
 }
 
 void block_class::code(ostream &s) {
+  for (int i = body->first(); body->more(i); i = body->next(i)) {
+    body->nth(i)->code(s);
+  }
 }
 
 void let_class::code(ostream &s) {
 }
 
 void plus_class::code(ostream &s) {
+  e1->code(s);
+  emit_push(ACC, s);
+  curr.AddNoType();
+  e2->code(s);
+  emit_jal("Object.copy", s);
+  emit_load(T2,3,ACC,s);
+  emit_load(T1,1,SP,s);
+  emit_addiu(SP,SP,4,s);
+  curr.var_table.pop_back();
+  emit_load(T1,3,T1,s);
+  emit_add(T1,T1,T2,s);
+  emit_store(T1,3,ACC,s);
 }
 
 void sub_class::code(ostream &s) {
+  e1->code(s);
+  emit_push(ACC, s);
+  curr.AddNoType();
+  e2->code(s);
+  emit_jal("Object.copy", s);
+  emit_load(T2,3,ACC,s);
+  emit_load(T1,1,SP,s);
+  emit_addiu(SP,SP,4,s);
+  curr.var_table.pop_back();
+  emit_load(T1,3,T1,s);
+  emit_sub(T1,T1,T2,s);
+  emit_store(T1,3,ACC,s);
 }
 
 void mul_class::code(ostream &s) {
+  e1->code(s);
+  emit_push(ACC, s);
+  curr.AddNoType();
+  e2->code(s);
+  emit_jal("Object.copy", s);
+  emit_load(T2,3,ACC,s);
+  emit_load(T1,1,SP,s);
+  emit_addiu(SP,SP,4,s);
+  curr.var_table.pop_back();
+  emit_load(T1,3,T1,s);
+  emit_mul(T1,T1,T2,s);
+  emit_store(T1,3,ACC,s);
 }
 
 void divide_class::code(ostream &s) {
+  e1->code(s);
+  emit_push(ACC, s);
+  curr.AddNoType();
+  e2->code(s);
+  emit_jal("Object.copy", s);
+  emit_load(T2,3,ACC,s);
+  emit_load(T1,1,SP,s);
+  emit_addiu(SP,SP,4,s);
+  curr.var_table.pop_back();
+  emit_load(T1,3,T1,s);
+  emit_div(T1,T1,T2,s);
+  emit_store(T1,3,ACC,s);
 }
 
 void neg_class::code(ostream &s) {
+  e1->code(s);
+  emit_jal("Object.copy",s);
+  emit_load(T1,3,ACC,s);
+  emit_neg(T1,T1,s);
+  emit_store(T1,3,ACC,s);
 }
 
 void lt_class::code(ostream &s) {
+  e1->code(s);
+  emit_push(ACC, s);
+  curr.AddNoType();
+  e2->code(s);
+  emit_addiu(SP, SP, 4, s);
+  emit_load(T1, 0, SP, s);
+  emit_move(T2, ACC, s);
+  emit_load(T1, 3, T1, s);
+  emit_load(T2, 3, T2, s);
+  emit_load_bool(ACC, BoolConst(1), s);
+  emit_blt(T1, T2, labelnumber, s);
+  emit_load_bool(ACC, BoolConst(0), s);
+  emit_label_def(labelnumber, s);
+  ++labelnumber;
 }
 
 void eq_class::code(ostream &s) {
+  e1->code(s);
+  emit_push(ACC, s);
+  curr.AddNoType();
+  e2->code(s);
+  emit_addiu(SP, SP, 4, s);
+  emit_load(T1, 0, SP, s);
+  emit_move(T2, ACC, s);
+  if (e1->type == Int || e1->type == Str || e1->type == Bool)
+    if (e2->type == Int || e2->type == Str || e2->type == Bool) {
+      emit_load_bool(ACC, BoolConst(1), s);
+      emit_load_bool(A1, BoolConst(0), s);
+      emit_jal("equality_test", s);
+      return;
+    }
+  emit_load_bool(ACC, BoolConst(1), s);
+  emit_beq(T1, T2, labelnumber, s);
+  emit_load_bool(ACC, BoolConst(0), s);
+  emit_label_def(labelnumber, s);
+  ++labelnumber;
 }
 
 void leq_class::code(ostream &s) {
+  e1->code(s);
+  emit_push(ACC, s);
+  curr.AddNoType();
+  e2->code(s);
+  emit_addiu(SP, SP, 4, s);
+  emit_load(T1, 0, SP, s);
+  emit_move(T2, ACC, s);
+  emit_load(T1, 3, T1, s);
+  emit_load(T2, 3, T2, s);
+  emit_load_bool(ACC, BoolConst(1), s);
+  emit_bleq(T1, T2, labelnumber, s);
+  emit_load_bool(ACC, BoolConst(0), s);
+  emit_label_def(labelnumber, s);
+  ++labelnumber;
 }
 
 void comp_class::code(ostream &s) {
+  e1->code(s);
+  emit_load(T1, 3, ACC, s);
+  emit_load_bool(ACC, BoolConst(1), s);
+  emit_beq(T1, ZERO, labelnumber, s);
+  emit_load_bool(ACC, BoolConst(0), s);
+  emit_label_def(labelnumber, s);
+  ++labelnumber;
+
 }
 
 void int_const_class::code(ostream& s)  
@@ -953,6 +1108,7 @@ void isvoid_class::code(ostream &s) {
 }
 
 void no_expr_class::code(ostream &s) {
+    emit_move(ACC, ZERO, s);
 }
 
 void object_class::code(ostream &s) {
