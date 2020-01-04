@@ -917,9 +917,7 @@ void CgenNode::set_parentnd(CgenNodeP p) {
 std::vector<AttrPair> CgenNode::get_attributes() {
   std::vector<AttrPair>attrs;
   Feature feature;
-  int i;
-
-  for (i = features->first(); features->more(i); i = features->next(i)) {
+  for (int i = features->first(); features->more(i); i = features->next(i)) {
     feature = features->nth(i);
     if (!feature->is_method()) {
       attrs.push_back(AttrPair(get_name(),
@@ -954,11 +952,10 @@ std::vector<AttrPair> CgenNode::get_all_attributes() {
   std::vector<CgenNodeP>::reverse_iterator it;
   Features features;
   Feature feature;
-  int i;
 
   for (it = path.rbegin(); it != path.rend(); ++it) {
     features = (*it)->features;
-    for (i = features->first(); features->more(i); i = features->next(i)) {
+    for (int i = features->first(); features->more(i); i = features->next(i)) {
       feature = features->nth(i);
       if (!feature->is_method())
         attrs.push_back(AttrPair((*it)->get_name(),
@@ -969,13 +966,13 @@ std::vector<AttrPair> CgenNode::get_all_attributes() {
   return attrs;
 }
 std::vector<CgenNodeP> CgenNode::get_children_vect() {
-  std::vector<CgenNodeP>res;
+  std::vector<CgenNodeP> r;
   List<CgenNode> *ch = get_children();
   while (ch) {
-    res.push_back(ch->hd());
+    r.push_back(ch->hd());
     ch = ch->tl();
   }
-  return res;
+  return r;
 }
 
 
@@ -990,7 +987,7 @@ std::vector<MethodPair> CgenNode::get_all_methods() {
   reverse(path);
   Features features; Feature feature;
   int i, j, k;
-  bool replaced;
+  bool is_replaced;
 
   for (k = 0; k < (int)path.size(); k++) {
     CgenNodeP class_node = path[k];
@@ -1002,15 +999,15 @@ std::vector<MethodPair> CgenNode::get_all_methods() {
       MethodPair m(class_node->get_name(),
                    (method_class *)feature);
 
-      for (replaced = false, j = 0; j < (int)methods.size(); j++) {
+      for (is_replaced = false, j = 0; j < (int)methods.size(); j++) {
         if (methods[j].method->get_name() == feature->get_name()) {
           methods[j] = m;
-          replaced = true;
+          is_replaced = true;
           break;
         }
       }
 
-      if (!replaced) methods.push_back(m);
+      if (!is_replaced) methods.push_back(m);
     }
   }
 
@@ -1022,8 +1019,7 @@ std::vector<MethodPair> CgenNode::get_all_methods() {
 std::vector<MethodPair> CgenNode::get_class_methods() {
   std::vector<MethodPair> result;
   std::vector<MethodPair> all_methods = get_all_methods();
-  int i;
-  for (i = 0; i < (int)all_methods.size(); i++) {
+  for (int i = 0; i < (int)all_methods.size(); i++) {
     MethodPair p = all_methods[i];
     if (p.class_name == get_name())
       result.push_back(p);
@@ -1035,10 +1031,9 @@ std::vector<MethodPair> CgenNode::get_class_methods() {
 
 void CgenNode::write_disptab(ostream& s) {
   std::vector<MethodPair> all_methods = get_all_methods();
-  int i;
   s << get_name()->get_string() << DISPTAB_SUFFIX << LABEL;
 
-  for (i = 0; i < (int)all_methods.size(); i++) {
+  for (int i = 0; i < (int)all_methods.size(); i++) {
     MethodPair p = all_methods[i];
     s << WORD << p.class_name->get_string() << METHOD_SEP <<
         p.method->get_name()->get_string() << "\n";
@@ -1061,13 +1056,12 @@ void CgenNode::write_objtab(ostream& s) {
 void CgenNode::write_protobj(ostream& s) {
   s << WORD << -1 << "\n" << get_name()->get_string() << PROTOBJ_SUFFIX <<
       LABEL << WORD << class_name_to_tag[get_name()] << "\n" << WORD <<
-      (DEFAULT_OBJFIELDS + num_of_attrs()) << "\n" << WORD <<
+      (DEFAULT_OBJFIELDS + attrs_num()) << "\n" << WORD <<
       get_name()->get_string() << DISPTAB_SUFFIX << "\n";
 
   std::vector<AttrPair>all_attributes = get_all_attributes();
-  int i;
 
-  for (i = 0; i < (int)all_attributes.size(); i++) {
+  for (int i = 0; i < (int)all_attributes.size(); i++) {
     AttrPair p = all_attributes[i];
     s << WORD;
     write_default_value(p.attribute->type_decl, s);
@@ -1107,20 +1101,19 @@ void CgenNode::code_init(ostream& s) {
     if (init->is_empty()) {
       Symbol type_decl = attribute->type_decl;
       if (type_decl == Int || type_decl == Str || type_decl == Bool) {
-	emit_partial_load_address(ACC, s);
-	write_default_value(attribute->type_decl, s);
-	s << std::endl;
-	emit_store(ACC, DEFAULT_OBJFIELDS + offset, SELF, s);
+	      emit_partial_load_address(ACC, s);
+        write_default_value(attribute->type_decl, s);
+      	s << std::endl;
+      	emit_store(ACC, DEFAULT_OBJFIELDS + offset, SELF, s);
       }
     } else {
-      Context c(this);
-      init->code(s, c);
-      emit_store(ACC, DEFAULT_OBJFIELDS + offset, SELF, s);
-
-      if (cgen_Memmgr == 1) {
-	emit_addiu(A1, SELF, 4 * (offset + 3), s);
-	emit_gc_assign(s);
-      }
+        Context c(this);
+        init->code(s, c);
+        emit_store(ACC, DEFAULT_OBJFIELDS + offset, SELF, s);
+        if (cgen_Memmgr == 1) {
+          emit_addiu(A1, SELF, 4 * (offset + 3), s);
+       	emit_gc_assign(s);
+        }
     }
   }
 
@@ -1150,7 +1143,6 @@ void CgenClassTable::code() {
   //                   - class_nameTab
   //                   - dispatch tables
 
-  
   write_nametabs();
   write_objtabs();
   write_disptabs();
@@ -1187,9 +1179,7 @@ std::vector<CgenNodeP> CgenClassTable::collect_all_classes() {
     q.pop();
 
     std::vector<CgenNodeP> children = top_class->get_children_vect();
-    int i;
-
-    for (i = 0; i < (int)children.size(); i++) {
+    for (int i = 0; i < (int)children.size(); i++) {
       q.push(children[i]);
     }
   }
@@ -1197,60 +1187,49 @@ std::vector<CgenNodeP> CgenClassTable::collect_all_classes() {
   return all_classes;
 }
 
-
-void CgenClassTable::write_disptabs() {
-  std::vector<CgenNodeP>all_classes = collect_all_classes();
-  int i;
-  for (i = 0; i < (int)all_classes.size(); i++) {
-    CgenNodeP class_node = all_classes[i];
-    class_node->write_disptab(str);
-  }
-}
-
-
 void CgenClassTable::write_nametabs() {
   str << CLASSNAMETAB << LABEL;
   std::vector<CgenNodeP>all_classes = collect_all_classes();
-  int i;
-  for (i = 0; i < (int)all_classes.size(); i++) {
+  for (int i = 0; i < (int)all_classes.size(); i++) {
     CgenNodeP class_node = all_classes[i];
     class_node->write_nametab(str);
     str << "\n";
   }
 }
 
-
 void CgenClassTable::write_objtabs() {
   str << CLASSOBJTAB << LABEL;
   std::vector<CgenNodeP>all_classes = collect_all_classes();
-  int i;
-  for (i = 0; i < (int)all_classes.size(); i++) {
+  for (int i = 0; i < (int)all_classes.size(); i++) {
     CgenNodeP class_node = all_classes[i];
     class_node->write_objtab(str);
     str << "\n";
   }
 }
 
+void CgenClassTable::write_disptabs() {
+  std::vector<CgenNodeP>all_classes = collect_all_classes();
+  for (int i = 0; i < (int)all_classes.size(); i++) {
+    CgenNodeP class_node = all_classes[i];
+    class_node->write_disptab(str);
+  }
+}
 
 void CgenClassTable::write_protobjs() {
   std::vector<CgenNodeP>all_classes = collect_all_classes();
-  int i;
-  for (i = 0; i < (int)all_classes.size(); i++) {
+  for (int i = 0; i < (int)all_classes.size(); i++) {
     CgenNodeP class_node = all_classes[i];
     class_node->write_protobj(str);
   }
 }
 
-
 void CgenClassTable::methods_code() {
-  std::vector<MethodPair> user_methods = get_user_defined_methods();
-  int i;
-  for (i = 0; i < (int)user_methods.size(); i++) {
+  std::vector<MethodPair> user_methods = get_user_methods();
+  for (int i = 0; i < (int)user_methods.size(); i++) {
     MethodPair m = user_methods[i];
     m.method->code(str, m.class_name);
   }
 }
-
 
 void method_class::code(ostream &s, Symbol class_name) {
   emit_method_ref(class_name, name, s);
@@ -1265,9 +1244,8 @@ void method_class::code(ostream &s, Symbol class_name) {
   emit_move(SELF, ACC, s);
 
   Context c(symbol_to_class[class_name]);
-  int i;
 
-  for (i = formals->first(); formals->more(i); i = formals->next(i)) {
+  for (int i = formals->first(); formals->more(i); i = formals->next(i)) {
     c.add_parameter(formals->nth(i)->get_name());
   }
 
@@ -1283,20 +1261,18 @@ void method_class::code(ostream &s, Symbol class_name) {
 
 
 
-std::vector<MethodPair> CgenClassTable::get_user_defined_methods() {
+std::vector<MethodPair> CgenClassTable::get_user_methods() {
   std::vector<MethodPair> methods;
   std::set< std::pair<Symbol, Symbol> >visited;
   std::vector<CgenNodeP> all_classes = collect_all_classes();
-  int i, j;
 
-  for (i = 0; i < (int)all_classes.size(); i++) {
+  for (int i = 0; i < (int)all_classes.size(); i++) {
     CgenNodeP class_node = all_classes[i];
     if (class_predefined(class_node->get_name())) continue;
     std::vector<MethodPair> class_methods = class_node->get_class_methods();
-    for (j = 0; j < (int)class_methods.size(); j++) {
+    for (int j = 0; j < (int)class_methods.size(); j++) {
       MethodPair p = class_methods[j];
-      std::pair<Symbol, Symbol> pa = std::make_pair(p.class_name,
-                                                    p.method->get_name());
+      std::pair<Symbol, Symbol> pa = std::make_pair(p.class_name, p.method->get_name());
       if (visited.find(pa) == visited.end()) {
         methods.push_back(p);
       }
@@ -1311,8 +1287,7 @@ std::vector<MethodPair> CgenClassTable::get_user_defined_methods() {
 
 void CgenClassTable::code_init() {
   std::vector<CgenNodeP> all_classes = collect_all_classes();
-  int i;
-  for (i = 0; i < (int)all_classes.size(); i++) {
+  for (int i = 0; i < (int)all_classes.size(); i++) {
     CgenNodeP class_node = all_classes[i];
     class_node->code_init(str);
   }
@@ -1409,9 +1384,7 @@ void assign_class::code(ostream &s, Context c) {
 
 
 void static_dispatch_class::code(ostream &s, Context c) {
-  int i;
-
-  for (i = actual->first(); actual->more(i); i = actual->next(i)) {
+  for (int i = actual->first(); actual->more(i); i = actual->next(i)) {
     actual->nth(i)->code(s, c);
     emit_push(ACC, s);
 
@@ -1449,9 +1422,7 @@ void static_dispatch_class::code(ostream &s, Context c) {
 
 
 void dispatch_class::code(ostream &s, Context c) {
-  int i;
-
-  for (i = actual->first(); actual->more(i); i = actual->next(i)) {
+  for (int i = actual->first(); actual->more(i); i = actual->next(i)) {
     actual->nth(i)->code(s, c);
     emit_push(ACC, s);
 
@@ -1583,15 +1554,11 @@ void typcase_class::code(ostream &s, Context c) {
 
 
 
-
-
 void block_class::code(ostream &s, Context c) {
-  int i;
-  for (i = body->first(); body->more(i); i = body->next(i)) {
+  for (int i = body->first(); body->more(i); i = body->next(i)) {
     body->nth(i)->code(s, c);
   }
 }
-
 
 
 
@@ -1599,9 +1566,7 @@ void let_class::code(ostream &s, Context c) {
   init->code(s, c);
 
   if (init->is_empty()) {
-    if (type_decl == Int ||
-	type_decl == Str ||
-	type_decl == Bool) {
+    if (type_decl == Int || type_decl == Str || type_decl == Bool) {
       emit_partial_load_address(ACC, s);
       write_default_value(type_decl, s);
       s << std::endl;
@@ -1618,7 +1583,6 @@ void let_class::code(ostream &s, Context c) {
 
 
 
-
 void plus_class::code(ostream &s, Context c) {
   binary_op_code(e1, e2, s, c);
   
@@ -1626,6 +1590,7 @@ void plus_class::code(ostream &s, Context c) {
   
   emit_store(T3, 3, ACC, s);
 }
+
 
 
 void sub_class::code(ostream &s, Context c) {

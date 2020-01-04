@@ -68,6 +68,7 @@ class CgenClassTable : public SymbolTable<Symbol,CgenNode> {
   void install_classes(Classes cs);
   void build_inheritance_tree();
   void set_relations(CgenNodeP nd);
+
  public:
   CgenClassTable(Classes, ostream& str);
   void code();
@@ -79,8 +80,7 @@ class CgenClassTable : public SymbolTable<Symbol,CgenNode> {
   void write_objtabs();
   void write_protobjs();
 
-  std::vector<MethodPair> get_user_defined_methods();
-
+  std::vector<MethodPair> get_user_methods();
   void code_init();
   void methods_code();
 };
@@ -116,17 +116,15 @@ class CgenNode : public class__class {
   std::vector<AttrPair> get_all_attributes();
   std::vector<MethodPair> get_all_methods();
   std::vector<MethodPair> get_class_methods();
+  std::vector<AttrPair> get_attributes();
 
-  int num_of_attrs() { return get_all_attributes().size(); }
+  int attrs_num() { return get_all_attributes().size(); }
 
   void write_disptab(ostream &s);
   void write_nametab(ostream &s);
   void write_objtab(ostream &s);
   void write_protobj(ostream &s);
-
   void code_init(ostream &s);
-
-  std::vector<AttrPair> get_attributes();
 };
 
 class BoolConst {
@@ -153,19 +151,18 @@ class Context {
   Context() {}
   ~Context() {}
 
+  CgenNodeP get_current_class() {
+    return current_class;
+  }
+
   Symbol current_class_name() {
     return current_class->get_name();
   }
 
-  CgenNodeP get_current_class() {
-    return current_class;
-  }
-  
   /* Return an attribute offset in object layout */
   int lookup_attribute(Symbol attr_name) {
     std::vector<AttrPair>all_attributes = current_class->get_all_attributes();
-    int i;
-    for (i = 0; i < (int)all_attributes.size(); i++) {
+    for (int i = 0; i < (int)all_attributes.size(); i++) {
       if (all_attributes[i].attribute->get_name() == attr_name)
         return i;
     }
@@ -173,11 +170,9 @@ class Context {
     return -1;  // not found
   }
 
-
   /* Return param offset on stack */
   int lookup_parameter(Symbol param_name) {
-    int i;
-    for (i = 0; i < (int)params_table.size(); i++) {
+    for (int i = 0; i < (int)params_table.size(); i++) {
       if (params_table[i] == param_name)
         return (int)params_table.size() - 1 - i;
     }
@@ -185,25 +180,21 @@ class Context {
     return -1;
   }
 
-
-  /* Return let_var offset on stack.
-     NOTE: we must search in reverse order. */
-  int lookup_let_variable(Symbol let_var_name) {
-    int i;
-    for (i = (int)let_vars_table.size() - 1; i >= 0; --i) {
-      if (let_vars_table[i] == let_var_name) {
-	return (int)let_vars_table.size() - 1 - i;
-      }
-    }
-    return -1;
-  }
-
-
   int add_parameter(Symbol param_name) {
     params_table.push_back(param_name);
     return (int)params_table.size() - 1;  // correct offset
   }
 
+  /* Return let_var offset on stack.
+     NOTE: we must search in reverse order. */
+  int lookup_let_variable(Symbol let_var_name) {
+    for (int i = (int)let_vars_table.size()-1; i >= 0; --i) {
+      if (let_vars_table[i] == let_var_name) {
+	      return (int)let_vars_table.size() - 1 - i;
+      }
+    }
+    return -1;
+  }
 
   int add_let_var(Symbol let_var_name) {
     let_vars_table.push_back(let_var_name);
@@ -215,7 +206,7 @@ class Context {
     return (int)let_vars_table.size() - 1;
   }
 
+  int add_no_type();
 
   /* IMPORTANT: keep the right offset for the let vars */
-  int add_no_type();
 };
